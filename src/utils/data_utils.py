@@ -11,15 +11,6 @@ import math
 import os
 import matplotlib.pyplot as plt
 
-def create_pr_classes_plot(pr_data):
-    colors = ["forestgreen", "royalblue", "lightcoral", "lightgray", 'teal', 
-              'darkviolet', 'goldenrod', 'olive', 'firebrick', 'slategray',
-              'grey', 'pink', 'green', 'orange', 'red', 'dimgray', 'yellow', 'peru']
-    fig, ax = plt.subplots()
-    value_counts = pr_data['class'].value_counts()
-    ax.bar(list(value_counts.index), value_counts.values, color=colors)
-    ax.legend()
-    stop = 0
 def match_label_to_distribution_class(labels, borders) -> pd.DataFrame:
     DIST_CLASSES = ["short_head", "middle_body", "long_tail"]
     prev_border = 0
@@ -208,7 +199,6 @@ def load_mimiciv_splits(data_dir, data_splits, filtered_notes, drop_icu):
             icu_stays = pd.read_csv(data_dir + f"/{split}/icustays.csv.gz")
             icu_stays = icu_stays[~icu_stays.hadm_id.duplicated(keep=False)].set_index("hadm_id")
             icu_notes = pd.merge(icu_stays, filtered_notes, on=['hadm_id'])
-            #icu_admission_notes = pd.merge(filtered_notes, icu_admissions, on=["hadm_id"])
             splits[split] = icu_notes.drop_duplicates()
         else:
             print("No correct split found. Correct split value = hosp | icu")
@@ -236,8 +226,8 @@ def create_task_ds_by_splits(data_dir, data_splits_dict, tasks, simplify=True):
                     #Use ''set()'' to filter duplicates after cutting
                     labeled_admission_notes.labels = labeled_admission_notes.labels.map(lambda x: ",".join(set([xs[:cut_off] for xs in x.split(",")])))
                 datasets_dict[split][task] = labeled_admission_notes[['text', 'labels', "subject_id"]]
-            elif task == "los":
-                    data["class"] = data.los.map(hosp_los_to_class) if split == 'hosp' else data.los.map(icu_los_to_class)
+            elif task == "los" and split == 'icu':
+                    data["class"] = data.los.map(icu_los_to_class)
                     datasets_dict[split][task] = data[["text", "class"]]
     return datasets_dict
 
@@ -286,7 +276,7 @@ def load_all_data(data_dir, splits, tasks):
                         name = file.replace(filepath, '').replace('.csv', '')
                         ds_dict[split][task][name] = df
     return ds_dict
-def create_patient_routing(transfers, notes):
+def create_patient_routing(transfers, notes, output_path):
     admit_events = transfers[transfers.eventtype == 'admit']
     admit_events.index = admit_events.index.astype(int)
     admit_events = admit_events[['careunit']]
@@ -303,9 +293,9 @@ def create_patient_routing(transfers, notes):
     test_df = test_val_split[0]
     val_df = test_val_split[1]
 
-    train_df.to_csv(f'/Users/toroe/Data/pr_test/train.csv')
-    test_df.to_csv(f'/Users/toroe/Data/pr_test/test.csv')
-    val_df.to_csv(f'/Users/toroe/Data/pr_test/val.csv')
+    train_df.to_csv(output_path)
+    test_df.to_csv(output_path)
+    val_df.to_csv(output_path)
 
 
 def map_careunit(careunit):
